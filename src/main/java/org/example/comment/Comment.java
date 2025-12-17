@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
@@ -23,12 +24,15 @@ public class Comment {
     private String id;
 
     @NotNull
+    @Indexed(name = "idx_comment_content_type")
     private ContentType contentType;
 
     @NotNull
+    @Indexed(name = "idx_comment_content_id")
     private Long contentId;
 
     @NotBlank
+    @Indexed(name = "idx_comment_author")
     private String authorUsername;
 
     @NotBlank
@@ -41,78 +45,32 @@ public class Comment {
 
     private Map<String, Object> metadata = new HashMap<>();
 
-    public Comment() {
-    }
+    public Comment() {}
 
-    public String getId() {
-        return id;
-    }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
-    public void setId(String id) {
-        this.id = id;
-    }
+    public ContentType getContentType() { return contentType; }
+    public void setContentType(ContentType contentType) { this.contentType = contentType; }
 
-    public ContentType getContentType() {
-        return contentType;
-    }
+    public Long getContentId() { return contentId; }
+    public void setContentId(Long contentId) { this.contentId = contentId; }
 
-    public void setContentType(ContentType contentType) {
-        this.contentType = contentType;
-    }
+    public String getAuthorUsername() { return authorUsername; }
+    public void setAuthorUsername(String authorUsername) { this.authorUsername = authorUsername; }
 
-    public Long getContentId() {
-        return contentId;
-    }
+    public String getText() { return text; }
+    public void setText(String text) { this.text = text; }
 
-    public void setContentId(Long contentId) {
-        this.contentId = contentId;
-    }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
-    public String getAuthorUsername() {
-        return authorUsername;
-    }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 
-    public void setAuthorUsername(String authorUsername) {
-        this.authorUsername = authorUsername;
-    }
+    public List<CommentReply> getReplies() { return replies; }
+    public void setReplies(List<CommentReply> replies) { this.replies = replies; }
 
-    public String getText() {
-        return text;
-    }
-
-    public void setText(String text) {
-        this.text = text;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public List<CommentReply> getReplies() {
-        return replies;
-    }
-
-    public void setReplies(List<CommentReply> replies) {
-        this.replies = replies;
-    }
-
-    public Map<String, Object> getMetadata() {
-        return metadata;
-    }
-
-    public void setMetadata(Map<String, Object> metadata) {
-        this.metadata = metadata;
-    }
+    public Map<String, Object> getMetadata() { return metadata; }
+    public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
 }

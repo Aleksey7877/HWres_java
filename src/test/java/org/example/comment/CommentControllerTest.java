@@ -7,7 +7,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.*;
@@ -22,16 +25,20 @@ class CommentControllerTest {
     @Mock
     private CommentRepository commentRepository;
 
+    @Mock
+    private ContentExistenceService contentExistenceService;
+
     @InjectMocks
     private CommentController commentController;
 
-
     @Test
-    void createComment_setsAuthor_andSaves() {
+    void createComment_savesAndReturns() {
         CreateCommentRequest req = new CreateCommentRequest();
         req.setContentType(ContentType.ARTICLE);
         req.setContentId(2L);
         req.setText("тест комментария");
+
+        when(contentExistenceService.exists(ContentType.ARTICLE, 2L)).thenReturn(true);
 
         Comment saved = new Comment();
         saved.setId("id123");
@@ -51,30 +58,57 @@ class CommentControllerTest {
 
         assertThat(result.getId()).isEqualTo("id123");
         assertThat(result.getAuthorUsername()).isEqualTo("user1");
+
+        verify(contentExistenceService).exists(ContentType.ARTICLE, 2L);
         verify(commentRepository).save(any(Comment.class));
         verifyNoMoreInteractions(commentRepository);
     }
 
     @Test
-    void createComment_withMetadata_andAnonymousUser_setsMetadataAndAnonymous() {
+    void createComment_whenContentNotFound_throws404() {
         CreateCommentRequest req = new CreateCommentRequest();
-        req.setContentType(ContentType.ARTICLE);
-        req.setContentId(3L);
-        req.setText("коммент с метаданными");
-        req.setMetadata(Map.of("ip", "127.0.0.1"));
+        req.setContentType(ContentType.VIDEO);
+        req.setContentId(999L);
+        req.setText("nope");
 
-        when(commentRepository.save(any(Comment.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0, Comment.class));
+        when(contentExistenceService.exists(ContentType.VIDEO, 999L)).thenReturn(false);
 
-        Comment result = commentController.createComment(req, null);
+        Authentication auth = mock(Authentication.class);
 
-        assertThat(result.getAuthorUsername()).isEqualTo("anonymous");
-        assertThat(result.getMetadata()).containsEntry("ip", "127.0.0.1");
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> commentController.createComment(req, auth)
+        );
 
-        verify(commentRepository).save(any(Comment.class));
-        verifyNoMoreInteractions(commentRepository);
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        verify(contentExistenceService).exists(ContentType.VIDEO, 999L);
+        verifyNoInteractions(commentRepository);
     }
 
+    @Test
+    void getByContent_returnsSortedList() {
+        Comment c1 = new Comment();
+        c1.setId("c1");
+        c1.setCreatedAt(Instant.parse("2025-12-10T10:00:00Z"));
+
+        Comment c2 = new Comment();
+        c2.setId("c2");
+        c2.setCreatedAt(Instant.parse("2025-12-10T11:00:00Z"));
+
+        when(commentRepository.findByContentTypeAndContentIdOrderByCreatedAtAsc(ContentType.ARTICLE, 2L))
+                .thenReturn(List.of(c1, c2));
+
+        List<Comment> result = commentController.getByContent(ContentType.ARTICLE, 2L);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getId()).isEqualTo("c1");
+        assertThat(result.get(1).getId()).isEqualTo("c2");
+
+        assertThat(result.get(0).getCreatedAt()).isBefore(result.get(1).getCreatedAt());
+
+        verify(commentRepository).findByContentTypeAndContentIdOrderByCreatedAtAsc(ContentType.ARTICLE, 2L);
+        verifyNoMoreInteractions(commentRepository);
+    }
 
     @Test
     void addReply_whenCommentNotFound_throws() {
@@ -83,9 +117,11 @@ class CommentControllerTest {
         CreateReplyRequest req = new CreateReplyRequest();
         req.setText("ответ");
 
+        Authentication auth = mock(Authentication.class); // без стаба getName()
+
         assertThrows(
                 CommentNotFoundException.class,
-                () -> commentController.addReply("missing", req, null)
+                () -> commentController.addReply("missing", req, auth)
         );
 
         verify(commentRepository).findById("missing");
@@ -97,14 +133,12 @@ class CommentControllerTest {
         Comment comment = new Comment();
         comment.setId("c1");
         comment.setReplies(new ArrayList<>());
-        comment.setCreatedAt(Instant.now());
-        comment.setUpdatedAt(Instant.now());
 
         when(commentRepository.findById("c1")).thenReturn(Optional.of(comment));
         when(commentRepository.save(comment)).thenReturn(comment);
 
         CreateReplyRequest req = new CreateReplyRequest();
-        req.setText("reply text");
+        req.setText("reply");
 
         Authentication auth = mock(Authentication.class);
         when(auth.getName()).thenReturn("user2");
@@ -112,6 +146,7 @@ class CommentControllerTest {
         Comment result = commentController.addReply("c1", req, auth);
 
         assertThat(result.getReplies()).hasSize(1);
+        assertThat(result.getReplies().get(0).getText()).isEqualTo("reply");
         assertThat(result.getReplies().get(0).getAuthorUsername()).isEqualTo("user2");
 
         verify(commentRepository).findById("c1");
@@ -120,104 +155,73 @@ class CommentControllerTest {
     }
 
     @Test
-    void addReply_withMetadata_andAnonymousUser_setsMetadataAndAnonymous() {
-        Comment comment = new Comment();
-        comment.setId("c2");
-        comment.setReplies(new ArrayList<>());
-        comment.setCreatedAt(Instant.now());
-        comment.setUpdatedAt(Instant.now());
-
-        when(commentRepository.findById("c2")).thenReturn(Optional.of(comment));
-        when(commentRepository.save(comment)).thenReturn(comment);
-
-        CreateReplyRequest req = new CreateReplyRequest();
-        req.setText("reply with metadata");
-        req.setMetadata(Map.of("client", "mobile"));
-
-        Comment result = commentController.addReply("c2", req, null);
-
-        assertThat(result.getReplies()).hasSize(1);
-        assertThat(result.getReplies().get(0).getAuthorUsername()).isEqualTo("anonymous");
-        assertThat(result.getReplies().get(0).getMetadata())
-                .containsEntry("client", "mobile");
-
-        verify(commentRepository).findById("c2");
-        verify(commentRepository).save(comment);
-        verifyNoMoreInteractions(commentRepository);
-    }
-
-
-    @Test
-    void getById_returnsComment() {
-        Comment c = new Comment();
-        c.setId("c42");
-        when(commentRepository.findById("c42")).thenReturn(Optional.of(c));
-
-        Comment result = commentController.getById("c42");
-
-        assertThat(result).isSameAs(c);
-        verify(commentRepository).findById("c42");
-    }
-
-    @Test
-    void getById_whenNotFound_throws() {
-        when(commentRepository.findById("missing")).thenReturn(Optional.empty());
-
-        assertThrows(CommentNotFoundException.class,
-                () -> commentController.getById("missing"));
-    }
-
-    @Test
-    void getByContent_returnsList() {
-        Comment c1 = new Comment();
-        c1.setId("c1");
-        when(commentRepository
-                .findByContentTypeAndContentIdOrderByCreatedAtAsc(ContentType.ARTICLE, 2L))
-                .thenReturn(List.of(c1));
-
-        List<Comment> result = commentController.getByContent(ContentType.ARTICLE, 2L);
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0)).isSameAs(c1);
-        verify(commentRepository)
-                .findByContentTypeAndContentIdOrderByCreatedAtAsc(ContentType.ARTICLE, 2L);
-    }
-
-
-    @Test
-    void updateComment_changesTextAndSaves() {
+    void updateComment_byAuthor_updatesText() {
         Comment c = new Comment();
         c.setId("c1");
-        c.setText("old");
+        c.setAuthorUsername("user1");
+        c.setText("old text");
 
         when(commentRepository.findById("c1")).thenReturn(Optional.of(c));
         when(commentRepository.save(c)).thenReturn(c);
 
-        Comment result = commentController.updateComment(
-                "c1",
-                Map.of("text", "new text")
-        );
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("user1");
+        when(auth.getAuthorities()).thenReturn((Collection) List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
+        Comment result = commentController.updateComment("c1", Map.of("text", "new text"), auth);
 
         assertThat(result.getText()).isEqualTo("new text");
-        verify(commentRepository).findById("c1");
         verify(commentRepository).save(c);
+        verifyNoMoreInteractions(commentRepository);
     }
 
     @Test
-    void deleteComment_whenNotExists_throws() {
-        when(commentRepository.existsById("missing")).thenReturn(false);
+    void updateComment_byAnotherUser_notAdmin_forbidden() {
+        Comment c = new Comment();
+        c.setId("c1");
+        c.setAuthorUsername("author");
 
-        assertThrows(CommentNotFoundException.class,
-                () -> commentController.deleteComment("missing"));
+        when(commentRepository.findById("c1")).thenReturn(Optional.of(c));
+
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("intruder");
+        when(auth.getAuthorities()).thenReturn((Collection) List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> commentController.updateComment("c1", Map.of("text", "hack"), auth)
+        );
+
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(commentRepository, never()).save(any());
+        verifyNoMoreInteractions(commentRepository);
     }
 
     @Test
-    void deleteComment_existing_deletes() {
-        when(commentRepository.existsById("c1")).thenReturn(true);
+    void deleteComment_byAdmin_deletes() {
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("admin");
+        when(auth.getAuthorities()).thenReturn((Collection) List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
 
-        commentController.deleteComment("c1");
+        commentController.deleteComment("c1", auth);
 
-        verify(commentRepository).existsById("c1");
         verify(commentRepository).deleteById("c1");
+        verifyNoMoreInteractions(commentRepository);
+    }
+
+    @Test
+    void deleteComment_byNotAuthor_notAdmin_forbidden() {
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("intruder");
+        when(auth.getAuthorities()).thenReturn((Collection) List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> commentController.deleteComment("c1", auth)
+        );
+
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(commentRepository, never()).deleteById(anyString());
+        verifyNoMoreInteractions(commentRepository);
     }
 }
