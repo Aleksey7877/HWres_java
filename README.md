@@ -35,7 +35,7 @@ mvn spring-boot:run
 Или:
 mvn clean package
 java -jar target/media-cms-0.0.1-SNAPSHOT.jar
-Или: запустить класс MediaCmsApplication из IDE (IntelliJ IDEA).
+Или: запустить класс MediaCmsApplication.
 
 Тесты:
 
@@ -64,7 +64,7 @@ mvn clean test
 
 
 curl -v http://localhost:8080/v3/api-docs
-# Ожидаем: HTTP/1.1 200 OK и JSON с описанием API
+ Ожидаем: HTTP/1.1 200 OK и JSON с описанием API
 
 Swagger UI (проверяется в браузере)
 http://localhost:8080/swagger-ui/index.html
@@ -81,8 +81,8 @@ curl -v \
   "password": "pass1"
 }
 EOF
-# Ожидаем: 200 OK и JSON вида:
-# {"id":2,"username":"user1","role":"USER"}
+ Ожидаем: 200 OK и JSON вида:
+ {"id":2,"username":"user1","role":"USER"}
 
 Ещё один пользователь:
 curl -v \
@@ -94,23 +94,23 @@ http://localhost:8080/api/auth/register << 'EOF'
 "password": "pass2"
 }
 EOF
-# Ожидаем: 200 OK, {"id":3,"username":"user2","role":"USER"}
+ Ожидаем: 200 OK, {"id":3,"username":"user2","role":"USER"}
 
 2.2. Текущий авторизованный пользователь /api/auth/me
 
 curl -u admin:admin http://localhost:8080/api/auth/me
-# Ожидаем: {"id":1,"username":"admin","role":"ADMIN"}
+ Ожидаем: {"id":1,"username":"admin","role":"ADMIN"}
 
 Проверка под обычным пользователем:
 curl -u user1:pass1 http://localhost:8080/api/auth/me
-# Ожидаем: {"id":2,"username":"user1","role":"USER"}
+ Ожидаем: {"id":2,"username":"user1","role":"USER"}
 
 3. Доступ к контенту и проверка ролей
    3.1. Публичный просмотр контента (без авторизации)
    curl -v http://localhost:8080/api/articles
    curl -v http://localhost:8080/api/videos
    curl -v http://localhost:8080/api/podcasts
-# Ожидаем: HTTP/1.1 200 OK и JSON (даже без логина)
+ Ожидаем: HTTP/1.1 200 OK и JSON (даже без логина)
 
 3.2. Создание статей / видео / подкастов
 Попытка создать статью обычным пользователем — должно быть запрещено
@@ -126,7 +126,7 @@ http://localhost:8080/api/articles << 'EOF'
 "publishedAt": "2025-12-10"
 }
 EOF
-# Ожидаем: 403 Forbidden
+ Ожидаем: 403 Forbidden
 
 Создание статьи админом
 
@@ -141,7 +141,7 @@ http://localhost:8080/api/articles << 'EOF'
 "publishedAt": "2025-12-10"
 }
 EOF
-# Ожидаем: 200 OK и JSON с полем id
+ Ожидаем: 200 OK и JSON с полем id
 
 Создание видео админом
 
@@ -155,7 +155,7 @@ http://localhost:8080/api/videos << 'EOF'
 "duration": 1234
 }
 EOF
-# Ожидаем: 200 OK и JSON с id
+ Ожидаем: 200 OK и JSON с id
 
 Создание подкаста админом
 
@@ -172,7 +172,7 @@ http://localhost:8080/api/podcasts << 'EOF'
 ]
 }
 EOF
-# Ожидаем: 200 OK и JSON с id
+ Ожидаем: 200 OK и JSON с id
 
 
 3.3. Обновление и удаление статей (только ADMIN)
@@ -190,22 +190,22 @@ http://localhost:8080/api/articles/1 << 'EOF'
 "publishedAt": "2025-12-11"
 }
 EOF
-# Ожидаем: 200 OK и обновлённый JSON статьи
+ Ожидаем: 200 OK и обновлённый JSON статьи
 
 Удаление статьи id=1
 curl -v -u admin:admin -X DELETE http://localhost:8080/api/articles/1
-# Ожидаем: 204 No Content
+ Ожидаем: 204 No Content
 
 4. Управление пользователями (только ADMIN)
    4.1. Список всех пользователей
 
 curl -v -u admin:admin http://localhost:8080/api/users
-# Ожидаем: 200 OK и массив пользователей
+ Ожидаем: 200 OK и массив пользователей
 
 4.2. Попытка получить список пользователей под обычным юзером — запрещено
 
 curl -v -u user1:pass1 http://localhost:8080/api/users
-# Ожидаем: 403 Forbidden
+ Ожидаем: 403 Forbidden
 
 5. Комментарии и MongoDB
    Комментарии иерархические, хранятся в MongoDB, привязаны к любому типу контента:
@@ -228,7 +228,7 @@ http://localhost:8080/api/comments << 'EOF'
 "text": "Попытка анонима"
 }
 EOF
-# Ожидаем: 401 Unauthorized (Basic Auth)
+ Ожидаем: 401 Unauthorized (Basic Auth)
 
 5.2. Создать комментарий к статье id=2 под user1
 
@@ -242,18 +242,18 @@ http://localhost:8080/api/comments << 'EOF'
 "text": "Первый комментарий к статье 2"
 }
 EOF
-# Ожидаем: 200 OK и JSON вида:
-# {
-#   "id":"<Mongo ObjectId>",
-#   "contentType":"ARTICLE",
-#   "contentId":2,
-#   "authorUsername":"user1",
-#   "text":"Первый комментарий к статье 2",
-#   "createdAt": "...",
-#   "updatedAt": "...",
-#   "replies":[],
-#   "metadata":{}
-# }
+ Ожидаем: 200 OK и JSON вида:
+ {
+   "id":"<Mongo ObjectId>",
+   "contentType":"ARTICLE",
+   "contentId":2,
+   "authorUsername":"user1",
+   "text":"Первый комментарий к статье 2",
+   "createdAt": "...",
+   "updatedAt": "...",
+   "replies":[],
+   "metadata":{}
+ }
 
 Запоминаем id из ответа
 
@@ -261,13 +261,13 @@ EOF
 
 curl -v -u user1:pass1 \
 "http://localhost:8080/api/comments/by-content?type=ARTICLE&contentId=2"
-# Ожидаем: 200 OK и массив комментариев к статье 2
+ Ожидаем: 200 OK и массив комментариев к статье 2
 
 5.4. Получить комментарий по id
 
 curl -v -u user1:pass1 \
 http://localhost:8080/api/comments/69395086bb0a867b74cd695c
-# Ожидаем: 200 OK и JSON этого комментария
+ Ожидаем: 200 OK и JSON этого комментария
 
 5.5. Обновить текст комментария
 
@@ -280,7 +280,7 @@ http://localhost:8080/api/comments/69395086bb0a867b74cd695c << 'EOF'
 "text": "Обновлённый текст комментария"
 }
 EOF
-# Ожидаем: 200 OK и обновлённый JSON комментария
+ Ожидаем: 200 OK и обновлённый JSON комментария
 
 5.6. Добавить вложенный ответ (reply) к комментарию
 
@@ -296,20 +296,95 @@ http://localhost:8080/api/comments/69395086bb0a867b74cd695c/replies << 'EOF'
 }
 }
 EOF
-# Ожидаем: 200 OK и JSON корневого комментария с заполненным массивом replies
+ Ожидаем: 200 OK и JSON корневого комментария с заполненным массивом replies
 
 5.7. Удалить комментарий (ADMIN)
 
 curl -v -u admin:admin -X DELETE \
 http://localhost:8080/api/comments/69395086bb0a867b74cd695c
-# Ожидаем: 200 OK или 204 No Content (в зависимости от реализации)
+ Ожидаем: 200 OK или 204 No Content (в зависимости от реализации)
 
 Проверка обработки ошибки (необязательная, но показывает корректный 404):
 
 curl -v -u admin:admin -X DELETE \
 http://localhost:8080/api/comments/1
-# Ожидаем: 404 Not Found и JSON:
-# {"error":"COMMENT_NOT_FOUND","message":"Comment not found: 1"}
+ Ожидаем: 404 Not Found и JSON:
+ {"error":"COMMENT_NOT_FOUND","message":"Comment not found: 1"}
+
+ # Корректировка
+ 5.8. Проверка: нельзя создать комментарий к несуществующему контенту (contentId)
+
+ARTICLE
+curl -v -u user1:pass1 -H "Content-Type: application/json" \
+  --data-binary '{"contentType":"ARTICLE","contentId":999999999,"text":"nope"}' \
+  http://localhost:8080/api/comments
+Ожидаем: 404 Not Found
+
+VIDEO
+curl -v -u user1:pass1 -H "Content-Type: application/json" \
+  --data-binary '{"contentType":"VIDEO","contentId":999999999,"text":"nope"}' \
+  http://localhost:8080/api/comments
+Ожидаем: 404 Not Found
+
+PODCAST
+curl -v -u user1:pass1 -H "Content-Type: application/json" \
+  --data-binary '{"contentType":"PODCAST","contentId":999999999,"text":"nope"}' \
+  http://localhost:8080/api/comments
+Ожидаем: 404 Not Found
+
+5.9 Проверка: редактировать комментарий может только автор
+
+1) Создаём коммент и достаём его id
+CID=$(curl -s -u user1:pass1 -H "Content-Type: application/json" \
+  --data-binary '{"contentType":"ARTICLE","contentId":1,"text":"comment from user1"}' \
+  http://localhost:8080/api/comments \
+  | grep -oE '"id"\s*:\s*"[^"]+"' | head -1 | cut -d'"' -f4)
+
+echo "CID=$CID"
+
+2) Чужой пользователь пытается редактировать
+curl -v -u user2:pass2 -X PUT -H "Content-Type: application/json" \
+  --data-binary '{"text":"i am not author"}' \
+  "http://localhost:8080/api/comments/$CID"
+Ожидаем: 403 Forbidden
+
+3) Автор редактирует
+curl -v -u user1:pass1 -X PUT -H "Content-Type: application/json" \
+  --data-binary '{"text":"author edit ok"}' \
+  "http://localhost:8080/api/comments/$CID"
+Ожидаем: 200 OK и обновлённый comment
+
+ # Корректировка
+ Комментарии хранятся в MongoDB (db: comments_db, collection: comments).
+Для исключения full table scan используются индексы:
+
+- authorUsername (поиск по автору)
+- contentType + contentId (получение комментариев по контенту)
+- _id (поиск комментария по id) — создаётся MongoDB автоматически
+
+Проверка индексов
+
+docker exec -it media-mongo mongosh
+
+use comments_db
+
+все индексы коллекции
+db.comments.getIndexes()
+
+если индекса на authorUsername ещё нет:
+db.comments.createIndex({ authorUsername: 1 })
+
+составной индекс для by-content 
+db.comments.createIndex({ contentType: 1, contentId: 1 })
+
+Проверка, что нет COLLSCAN (индекс)
+
+1) запрос по автору: IXSCAN по authorUsername_1
+db.comments.find({ authorUsername: "user1" }).explain("executionStats")
+
+2) запрос по контенту: IXSCAN по contentType_1_contentId_1
+db.comments.find({ contentType: "ARTICLE", contentId: 1 }).explain("executionStats")
+
 
 6. Сессии в MongoDB (Spring Session)
 
@@ -318,14 +393,16 @@ http://localhost:8080/api/comments/1
 6.1. Первый запрос — создаём сессию и сохраняем cookies
 
 curl -c cookies.txt http://localhost:8080/api/session-demo/hit
-# Ожидаем: 200 OK и JSON вида:
-# {"sessionId":"...","hits":1}
+ Ожидаем: 200 OK и JSON вида:
+ {"sessionId":"...","hits":1}
 
 6.2. Второй запрос с теми же cookies — hits должен увеличиться
 
 curl -b cookies.txt http://localhost:8080/api/session-demo/hit
-# Ожидаем: 200 OK и JSON вида:
-# {"sessionId":"тот же id","hits":2}
+ Ожидаем: 200 OK и JSON вида:
+ {"sessionId":"тот же id","hits":2}
+
+
 
 
 ## Тестирование и покрытие
@@ -333,12 +410,15 @@ curl -b cookies.txt http://localhost:8080/api/session-demo/hit
 Проект настроен на использование JUnit 5, Mockito и JaCoCo.
 
 Тесты:
-- `ArticleControllerTest` — базовый CRUD для статей
-- `CommentControllerTest` — создание комментариев и ответов, обработка ошибок
-- `SessionDemoControllerTest` — демонстрация работы сессий (MongoDB + Spring Session)
+ArticleControllerTest — CRUD для статей.
+CommentControllerTest — создание/чтение/обновление/удаление комментариев и вложенных ответов, обработка ошибок.
+SessionDemoControllerTest — счётчик обращений в HTTP-сессии (MongoDB + Spring Session).
+VideoControllerTest — базовый сценарий получения списка видео.
+PodcastControllerTest — базовый сценарий получения списка подкастов.
+UserControllerTest — операции с пользователями: список, получение по id, обновление (логин/пароль/роль), удаление и проверки ошибок.
 
-Запуск тестов (на стороне проверяющего):
+Запуск тестов:
 
 ```bash
-mvn clean test
+mvn clean test или test/java -> run tests in "java" with coverage
 
